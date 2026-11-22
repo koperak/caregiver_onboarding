@@ -1,0 +1,4 @@
+.dirge/
+.env
+*.db
+status.json
