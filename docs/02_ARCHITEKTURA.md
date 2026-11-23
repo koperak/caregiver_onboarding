@@ -1,9 +1,9 @@
 # System Pozyskiwania i Profilowania Ogłoszeń Opiekunów
 ## Dokument 02: Architektura Systemu (Architecture Document)
 
-**Wersja:** 4.0 (Autentykacja i Konfiguracja Proxy)  
-**Status:** Zatwierdzony  
-**Data:** 2026-11-22  
+**Wersja:** 5.0 (Źródła wg faz, bez automatyki odblokowującej kontakt)  
+**Status:** Wersja robocza po rewizji źródeł  
+**Data:** 2026-11-23  
 
 ---
 
@@ -22,10 +22,10 @@ flowchart TD
         ProxyMgr -.->|"Rotujące IP domowe (dla OLX)"| Scraper
         Scraper --> DetectionCheck{"Wykryto Blokadę / 403 / 429?"}
         DetectionCheck -- Tak --> BlockHandler["Block Handler: Alert w konsoli [KRYTYCZNY ALERT] + status.json"]
-        DetectionCheck -- Nie --> ContentFilter{"Czy kontakt w tekście?"}
-        ContentFilter -- Brak kontaktu --> ClickUnmask["Emulacja kliknięcia 'Pokaż numer'"]
+        DetectionCheck -- Nie --> ContentFilter{"Kontakt jawny w tekście lub karcie?"}
+        ContentFilter -- Brak kontaktu --> ManualTask["Zadanie w CRM: odblokuj kontakt ręcznie (bez automatyki, FR-03)"]
         ContentFilter -- Jest kontakt --> ToMarkdown["Konwersja HTML -> Zwięzły Markdown"]
-        ClickUnmask --> ToMarkdown
+        ManualTask --> ToMarkdown
     end
 
     subgraph ExtractionLayer ["3. Warstwa Inteligencji (LLM Extraction)"]
@@ -69,7 +69,7 @@ flowchart TD
 | **Konfiguracja źródeł** | **PyYAML (`config/sources.yaml`)** | Deklaratywne definiowanie portali, startowych URL-i, kategorii i flagi `use_proxy`. |
 | **Obsługa Proxy** | **Rotujące Proxy Domowe (Residential)** | Pojedynczy endpoint (np. Webshare, Smartproxy, IPRoyal). Wymagany dla OLX ze względu na systemy DataDome. |
 | **Baza danych** | **Natywny SQLite + FTS5** | Plikowa baza danych (`caregivers.db`). Zero instalacji serwerów, wbudowany moduł FTS5 z tokenizatorem `unicode61 remove_diacritics 2`. |
-| **Silnik scrapingu** | **Crawl4AI / Playwright Stealth** | Automatyczna konwersja HTML do Markdown, obsługa dynamicznych stron SPA, obsługa proxy i klikanie przycisków. |
+| **Silnik scrapingu** | **Crawl4AI / Playwright Stealth** | Automatyczna konwersja HTML do Markdown, obsługa dynamicznych stron SPA, rotujące proxy dla kanałów chronionych DataDome. Bez automatycznego odblokowywania kontaktu (FR-03). |
 | **Model LLM** | **Gemini 2.5 Flash / Gemini 3 Flash** | Niskie koszty, wysoka szybkość, natywne **Structured Outputs (Pydantic)**. Brak zbędnych wektorów embeddings. |
 | **Autentykacja** | **HTTP Basic Auth** | Proste i bezpieczne zabezpieczenie Dashboardu hasłem ze zmiennych środowiskowych `.env`. |
 | **Scheduler** | **APScheduler (AsyncIOScheduler)** | Elastyczne harmonogramowanie zadań w tle. |
@@ -85,6 +85,8 @@ flowchart TD
 2. **Oszczędność transferu proxy:**
    - Flaga `use_proxy: true` w `sources.yaml` aktywuje proxy tylko dla wymagających portali (jak OLX).
    - Mniej restrykcyjne portale (np. Oferteo) działają na zapytaniach bezpośrednich (`use_proxy: false`), oszczędzając transfer proxy.
+   - Kanały katalogowe bez zabezpieczeń antybotowych (Faza 1, np. opiekaseniora.pl) są crawlowane bez proxy w ogóle - zob. lista źródeł w dok. 03 pkt 2.2.
+3. **Brak automatyki odblokowującej kontakt:** decyzja architektury - system nie klika „Pokaż numer” i nie pobiera danych zza paywalla (FR-03, dok. 06 sekcja 5 pkt 3). Schowany lub płatny kontakt wytwarza zadanie do ręcznej obsługi w module CRM, z odnotowanym kosztem. Dzięki temu warstwa scrapingu nie musi utrzymywać ani testować ścieżki interakcji z elementami chronionymi regulaminem.
 
 ---
 

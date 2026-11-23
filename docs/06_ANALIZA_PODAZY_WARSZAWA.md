@@ -1,40 +1,106 @@
 # Dokument 06: Analiza Podaży Opiekunów - Warszawa, promień 25 km
 
-**Status: wstępna, jakościowa.** System nie ma jeszcze kodu ani danych, więc nie ma liczb z własnej bazy. Poniżej wyłącznie obserwacje z jednorazowego wyszukiwania publicznego (snippety wyników, nie pełny crawl) oraz rozumowanie. Liczby oznaczone "obserwacja" pochodzą z tych snippetów i nie są reprezentatywne.
+**Wersja 2.0 (rewizja źródeł), stan weryfikacji: 2026-11-23.** Zastępuje wersję 1.0, która opierała się na źródłach niereprezentatywnych dla polskiego rynku (patrz sekcja 0).
 
-## 1. Obserwacje (jednorazowy przegląd, do weryfikacji crawlem)
-- Agregator Yoopies pokazuje dla Warszawy rząd wielkości ok. 25 aktywnych ofert opieki nad seniorem (obserwacja, stan na dzień wyszukania). To są głównie ogłoszenia rodzin SZUKAJĄCYCH opiekuna (popyt), nie kandydatów.
-- Stawki w snippetach: 25, 35 i 50 zł/h (ogłoszenia rodzin, godziny dorywcze); rozrzut 2x pokazuje zależność od zakresu (opieka z pielęgnacją, osoba leżąca) i godzin.
-- Wyniki obejmują okolice w promieniu 25 km: Piaseczno, Józefosław, Julianów, Zalesie, Złotokłos, Nadarzyn - czyli gmina i powiat piaseczyński są dobrze reprezentowane.
-- Znaczna część wyników to pracodawcy instytucjonalni (np. PRM Partner / Stowarzyszenie rekrutujące opiekunów, GOPS Nadarzyn) oraz ogłoszenia anglojęzyczne (kandydaci zagraniczni, w tym o niezwiązanych kwalifikacjach, np. opieka nad dziećmi).
+**Status: wstępna, jakościowa.** System nie ma kodu ani danych, więc nie ma liczb z własnej bazy. Wszystkie liczby poniżej pochodzą z jednorazowego przeglądu publicznego z 2026-11-23 (część z HTML-a portali pobranego bezpośrednio, część ze snippetów wyszukiwarki - podział w sekcji 6), nie z pełnego crawlowania, i nie są reprezentatywne. Oznaczenie "(obserwacja)" znaczy: do potwierdzenia crawlem pilotażowym.
 
-## 2. Wnioski o strukturze podaży
-1. **Rynek asymetryczny w tym kanale:** publiczne portale zawierają przewagę ogłoszeń popytowych (rodziny, agencje) nad samoreklamami opiekunów. Bez klasyfikatora offer/seek/agency (patrz dok. 05, pkt 8) metryka "liczba opiekunów" będzie zawyżona o wiele razy.
-2. **Segmenty podaży (hipotezy):**
-   - opiekunki indywidualne (OLX/Oferteo/Yoopies) - najbardziej wartościowe, ale najmniej liczne;
-   - pracownicy agencji i firm opiekuńczych - ogłoszenia rekrutacyjne, nie profile; kontakt przez firmę;
-   - migranci (UA i inne), często anglo- lub rosyjskojęzyczni; wymaga obsługi języków w ekstrakcji i numerów +380;
-   - studenci/pielęgniarki dorywczo (wieczory, weekendy);
-   - opieka instytucjonalna (GOPS, DPS) - nie jest rynkiem rekrutacji dla nas.
-3. **Geografia 25 km:** obejmuje Warszawę (dzielnice Ursynów, Wilanów, Włochy, Białołęka itd.) i powiaty: piaseczyński, pruszkowski, warszawski zachodni, legionowski, wołomiński, otwocki (część). Reprezentacja podaży będzie nierówna - Warszawa dominuje, a ogłoszenia z gmin często podają jedynie miejscowość, co wymaga słownika miejscowości z geokodowaniem (TERYT + współrzędne), bo pole `city` jako tekst nie pozwala filtrować promienia. Spec tego nie przewiduje.
-4. **Stawki:** wstępny zakres 25-50 zł/h w ogłoszeniach; typowa mediana prawdopodobnie 30-40 zł/h dla pomocy codziennej, wyżej przy opiece nocnej/pielęgnacyjnej (do potwierdzenia na danych). Nie używać jako benchmarku wynagrodzeń - to stawki ofertowe rodzin, nie kandydatów.
-5. **Rotacja i duplikacja:** ta sama osoba często pojawia się na kilku portalach i w odświeżanych ogłoszeniach; ogłoszenia agencji powielane per miejscowość ("Piaseczno", "Złotokłos", "Zalesie") - wymaga deduplikacji po treści/pracodawcy.
+## 0. Rewizja źródeł - co było nie tak w wersji 1.0
 
-## 3. Czego nie wiemy (i jak zmierzyć)
+| Źródło z v1 | Ustalenie | Decyzja |
+| :--- | :--- | :--- |
+| **Gumtree** | `gumtree.pl` **nie istnieje** - serwis zamknięty 7 kwietnia 2022 r., dodawanie ogłoszeń zablokowane od ~7 marca 2022 r. (decyzja właściciela, ~280 tys. aktywnych ogłoszeń w momencie zamknięcia). | **Wykreślone.** Rekomendacja v1 (sekcja 4, „rozszerzyć źródła o Yoopies, Gumtree”) była błędna. |
+| **Yoopies** | `yoopies.pl` działa i ma kategorię „Opieka seniora” z profilami i stawkami, ale to zagraniczny agregator (grupa Yoopies, PL jako jeden z wielu rynków, treści pozycjonujące SEO z cenami marketingowymi typu „od 22 zł/h”), o szczątkowym inwentarzu i zmieszanych intencjach ogłoszeń. | **Źródło pomocnicze, niski priorytet.** Nie reprezentatywne dla Warszawy. Nie było podstawy, by budować na jego ~25 snippetach wniosek o strukturze całego rynku. |
+| „rynek asymetryczny: przewaga ogłoszeń popytowych” | Teza była wnioskiem z jednego kanału agregatora. W kanałach katalogowych relacja odwraca się na korzyść podaży (sekcja 3.1). | **Uogólnienie wycofane.** |
+
+## 1. Źródła reprezentatywne dla rynku polskiego (zweryfikowane 2026-11-23)
+
+Priorytet = stosunek wartości dla celu systemu (znalezienie **samoreklamujących się opiekunów**, intencja `offer`) do kosztu pozyskania i ryzyka regulaminowego.
+
+1. **`opiekaseniora.pl`** (grupa Pomocni.pl) - **główne źródło podaży.** Dedykowany katalog profili opiekunów z całej Polski, z filtrem promienia (+2/+5/+10/+15/+20/+30 km), stawek, doświadczenia, wieku i zakresu obowiązków; karty profili zawierają datę ostatniej aktywności. Pułapka: licznik strony miasta już uwzględnia okolicę (sekcja 2) - filtrów miejscowości nie wolno sumować. Modele: `opieka dorywcza` i `opieka stała z zamieszkaniem`. Nie jest agencją - kontakt bezpośredni z opiekunem. Siostrzane serwisy tej samej grupy (ten sam mechanizm, inne kategorie, potwierdzone w stopce): `niania.pl`, `pomocedomowe.pl`, `opiekazwierzat.pl` - istotne, bo segment „pomoc domowa/sprzątanie” (sekcja 3.8) da się pozyskać tym samym adapterem.
+2. **OLX.pl** - **dwa różne kanały o przeciwnej intencji**, które v1 myliła:
+   - `olx.pl/uslugi/opieka-nad-chorymi-i-starszymi/...` i `.../sprzatanie/...` = **wykonawcy oferujący usługę (podaż)**;
+   - `olx.pl/praca/opieka/opieka-nad-seniorami-chorymi/...` = **pracodawcy i agencje (popyt)**, w tym instytucje (DPS, domy opieki) i agencje wyjazdowe do Niemiec.
+   Zabezpieczenia DataDome - jedyny słuszny powód istnienia proxy domowego w architekturze (dok. 02 pkt 3).
+3. **`oferteo.pl`** (kategoria *Zdrowie i uroda / Ochrona zdrowia / Opieka*) - model **odwrócony**: zlecenie publikuje rodzina, a wykonawca odpłaca punktami za odblokowanie kontaktu (cennik VIII 2026: 25 pkt = 259 zł netto, 1200 pkt = 7199 zł netto; brak abonamentu). Dla nas: sygnalizacja popytu i wykonalna lista firm opiekuńczych, **ale dane kontaktowe są za paywallem** - automatyczne ich pozyskiwanie to naruszenie regulaminu.
+4. **`fixly.pl`** (Grupa OLX sp. z o.o., właściciel: FIXLY sp. z o.o. z Poznania) - ten sam model odwrócony co Oferteo (strona główna: **596 204 wykonawców**, ocena średnia 4,7, 7 778 online, obserwacja 2026-11-23). Wysłanie oferty kosztuje 0-50 punktów zależnie od kategorii i lokalizacji (część kategorii bezpłatna); punkty w pakietach lub w subskrypcji co 30 dni, nowy wykonawca dostaje pakiet powitalny. Dla nas to ten sam kanał co OLX `uslugi`, więc priorytet dopiero po OLX.
+5. **Grupy na Facebooku** - największe zagęszczenie podaży indywidualnej w PL, np. „OPIEKA NAD SENIOREM - Warszawa - wsparcie / porady / ogłoszenia / praca” (grupa publiczna, **~8,9 tys. członków**, obserwacja), „Opieka nad osobami starszymi prywatnie”, „Grupa wsparcia dla opiekunek osób starszych”. Ogłoszenia `offer` z stawkami i numerami telefonu wprost w poście. **Wyłączone z crawlera**: login wall + rażące naruszenie regulaminu Meta + ryzyko RODO przy pozyskiwaniu danych z profili. Obsługa: import ręczny / za zgodą nadawcy (sekcja 5).
+6. **`api_kraz` (storapi.praca.gov.pl)** - **oficjalne, legalne API** rejestru agencji zatrudnienia (OpenAPI 3.1, dane publiczne, MRPiPS). Nie zastępuje katalogu profili, ale pozwala rozstrzygnąć `agency=true` po nazwie pracodawcy - czyli rozwiązuje problem z v1 pkt 1.2 bez scrapingu.
+7. **ePraca / `oferty.praca.gov.pl`** - oferty PUP i akredytowanych partnerów (w tym agencji), słowniki lokalizacji **oparte na TERYT**, eksport CSV/XML oraz udokumentowany interfejs dla integratorów. Uwaga terminowa: „Warunki udostępniania” wymagają od integratorów aktualizacji zgody do 30 listopada 2026 r. - warunek do spełnienia przed pilotażem.
+8. **Bazy kontekstowe (bez crawlowania):** Barometr zawodów (MRPiPS/WUP Kraków), raport BGK „Rynek opieki długoterminowej w Polsce” (luty 2026), dane GUS, zarządzenia i uchwały m.st. Warszawy o usługach opiekuńczych (wraz z siecią Ośrodków Pomocy Społecznej dzielnic).
+
+**Świadomie poza zakresem:** portale pracy (JOOBLE, Pracuj.pl i podobne agregatory) jako źródło podaży - zob. 3.3, generują szum; DPS/GOPS/PCPR/MOPS - instytucje, nie rynek rekrutacyjny (teza v1 utrzymana).
+
+## 2. Obserwacje liczbowe (stan 2026-11-23; źródło każdej liczby w sekcji 6)
+
+Uwaga metodologiczna: liczby o `opiekaseniora.pl` i Fixly pobrano 2026-11-23 bezpośrednio z HTML-a portali (`curl`, bez logowania); liczby o OLX, Yoopies i grupach FB pochodzą ze snippetów wyszukiwarki. Snippety bywają przedawnione (kopie wyników z różnego dnia), dlatego w całym dokumencie każde zestawienie liczb pochodzi z jednej metody i żadna liczba z pomiaru bezpośredniego nie jest mieszana z liczbą ze snippetu. Podział jakości dowodowej w sekcji 6.
+
+- **Skala katalogu profili (`opiekaseniora.pl`):** `opiekunowie` - **11 255 profili** w PL; `warszawa` - **710 profili**. Osobnym strumieniem są ogłoszenia rodzin (intencja popytu): `praca/warszawa` - **101 ogłoszeń**, `praca` (cała PL) - **939 ogłoszeń**. Stosunek podaży do popytu w tym kanale **~7:1 dla Warszawy** (710/101) i ~12:1 dla kraju (11 255/939) - czyli odwrotnie, niż twierdziła v1.
+- **Ważne: licznik profili na stronie miasta już obejmuje promień.** `warszawa` = 710, `marki` = 697, `konstancin-jeziorna` = 676 - wartości różnią się o kilkanaście, choć to różne miejscowości. Bez zadanego promienia serwis zwraca więc **ten sam zestaw profili z okolicy**, a nie profile z danej miejscowości. Konsekwencja projektowa: `radius_km` nie wolno realizować jako „osobne zapytanie per miejscowość i sumować” (podwójne liczenie tych samych opiekunów), tylko jako **jedno zapytanie z promieniem od wspólnego środka**. Potwierdzić w pilotażu.
+- **Pokrycie danymi o stawce jest niskie:** dla Warszawy średnia **42,5 zł/h**, zakres **15-100 zł/h**, ale stawkę podaje tylko **45 opiekunów** (z 710 profili, tj. ~6%). Nie zmierzone: wariant „opieka stała z zamieszkaniem” - parametr tego filtra nie jest jawny w URL, więc trzeba go ustalić w pilotażu.
+- **Pokrycie referencjami jest marginalne:** średnia ocen 5/5 na podstawie **45 opinii** przy 710 profilach (~6%) - ocena na portalu nie jest sygnałem wiarygodności i nie nadaje się na cechę rankingową.
+- **Pole użyteczne do sortowania bez ekstrakcji:** karty profili zawierają **`Ostatnia aktywność`** (w widoku Warszawy: „5 godzin temu”, „6 godzin temu”) obok wieku, liczby referencji i miasta. To gotowy sygnał świeżości (sekcja 3.4) - nie trzeba go wywodzić z treści ogłoszenia.
+- **OLX Praca, Warszawa:** kategoria *Opieka nad seniorami i chorymi* - **29 ogłoszeń**; wyszukiwanie `opieka seniora` w Praca/Warszawa - **107 ogłoszeń**. Stawki: `do 36,50 zł/h` (praca dodatkowa, student), `50-70 zł/h` (opieka nad osobą z niepełnosprawnością, Mokotów), `4750-4900 zł/mies.` (zamieszkanie, Targówek), `7300-7800 zł/mies.` (opiekun medyczny, Praga-Północ/Targówek/Białołęka), `do 31,40 zł/h` (Błonie).
+- **Agregatorzy pracy są zdominowane przez wyjazdy:** wyszukiwanie „Praca Opieka nad osoba starsza Warszawa” zwracało **~2870 ofert**, ale wśród pierwszych wyników agencje zmianowe do Niemiec (np. „Wyjazd od zaraz na 4 tygodnie ... Ratingen koło Düsseldorf”, 9 dni temu). To **nie jest podaż na rynku warszawskim**.
+- **Yoopies, Opieka seniora Warszawa:** cena marketingowa „od 22 zł/h”; widełki orientacyjne podane przez serwis: 1 doba ~200 zł, tydzień 170-185 zł/dobę (~1300 zł), miesiąc 3500-4200 zł. Przykładowe profile: Warszawa, 41 lata, >10 lat doświadczenia, 52 zł/h; Kraków, 48 lat, 10 lat, 37 zł/h. Potwierdza niską przydatność kanału, nie jego skalę.
+- **Kontekst popytu (dane publiczne, nie obserwacja z snippetów):** BGK 02.2026 - w Polsce ~1,6 mln osób w wieku 80+ (stan I 2025, GUS), >3 mln do 2040 r.; wskaźnik wyposażenia w łóżka opieki długoterminowej **9,5%** populacji 80+ (jedna z najniższych wartości w UE); prywatni operatorzy tylko **~22%** łóżek (UK/IE/IT: 75-85%); DPS na koniec 2024 r. - **82 077** mieszkańców, woj. mazowieckie **1,74 miejsca na 1000 mieszkańców** (najniższy udział miejsc prywatnych to wielkopolskie i lubelskie). 300Gospodarka (26 V 2026) na podstawie Cushman & Wakefield: inwestycje w europejskie domy opieki 16,1 mld euro w 2025 r.
+- **Struktura zawodowa podaży (potwierdzone fragmenty raportu):** Barometr zawodów 2026 (raport podsumowujący, MRPiPS/WUP Kraków, badania III-IV 2025) wskazuje **niską gotowość kandydatów do podejmowania pracy w zawodzie jako przyczynę deficytu w 18% ogółu wskazań**, a wśród zawodów, których to „najczęściej dotyczy”, wymienia **opiekunów osób starszych** - powód: trudne, obciążające psychicznie i fizycznie warunki pracy oraz nieatrakcyjne wynagrodzenie. Nie potwierdziłem natomiast, ani nie wykluczyłem, by „opiekun osoby starszej” znalazł się na liście zawodów deficytowych w konkretnych powiatach (Warszawa, piaseczyński) - to trzeba sprawdzić w kartach zawodu na `barometrzawodow.pl` przed użyciem tej tezy w wymaganiach.
+
+## 3. Wnioski o strukturze podaży
+
+1. **Podaż mieszka w katalogach profili, nie w ogłoszeniach.** Na OLX Praca (Warszawa) jest 29-107 pozycji, niemal całość to pracodawcy; na `opiekaseniora.pl` 710 profili o intencji `offer` (101 ogłoszeń popytowych w tym samym serwisie). Wniosek v1 o „rynku asymetrycznym” był artefaktem doboru kanału - **metryka „liczba opiekunów” zależy przede wszystkim od tego, które źródło zapytano**, a dopiero w drugiej kolejności od klasyfikatora.
+2. **Intencję ogłoszenia należy dziedziczyć po źródle, nie wywodzić z tekstu.** Kategoria kanału (katalog profili / `uslugi` / `praca`) jest silniejszym predyktorem niż treść. Model: `SourceConfig.intent_default` (offer / demand / mixed) + klasyfikator LLM tylko jako korekta pojedynczych przypadków na kanałach `mixed`. To zastępuje niedookreśloną rekomendację „klasyfikator offer/seek/agency” z v1 i z dok. 05 pkt 8.
+3. **Trzy klasy szumu strukturalnego, których v1 nie rozróżniała:** (a) **agencje pracy sezonowej za granicą** (Niemcy, zmiany 4-6 tygodni) - największy i najdroższy szum w kanałach pracy, wypłukuje też krajową podaż; (b) **rekrutacja instytucjonalna** (DPS, GOPS/PCPR, fundacje, np. PRM Partner, Stowarzyszenia); (c) **ogłoszenia dziecięce/sprzątanie** wrzucane do tych samych wyników. Bez flagi `is_foreign_placement` i filtra `is_institutional` panel CRM zostanie zalany ofertami, do których się nie dzwoni.
+4. **Świeżość, nie liczebność, jest definiującą cechą użytecznej podaży.** Barometr zawodów wskazuje niską gotowość kandydatów i trudne warunki pracy jako przyczyny deficytu (sekcja 2), a ogłoszenia z zamieszkaniem i rotacyjny charakter pracy to cechy tej branży. Nawet jeśli dokładna skala rotacji nie jest zmierzona, implikacja dla modelu jest bezpieczna: świeżość profilu jest ważniejsza niż jego istnienie. Model musi mieć `first_seen_at`, `last_seen_at`, `availability_status`, a kolejka CRM powinna być sortowana po **aktywności (widoczny od ≤ 14 dni)**, nie po dacie dodania. „Nowy opiekun” nie jest wartością samą w sobie - wartością jest „aktywny i niezajęty”. Do zmierzenia w pilotażu (sekcja 4).
+5. **Stawki są wyższe i szerzej rozstrzelone niż hipoteza v1** („mediana 30-40 zł/h”). Obserwowana średnia dla Warszawy to 42,5 zł/h (pomiar bezpośredni), przy dolnej granicy 15 zł/h (prawdopodobnie dane marketingowe lub opieka towarzyska) i górnej 100 zł/h (pielęgnacyjna, osoba leżąca, noce). W segmencie „zamieszkanie” rozliczenie jest miesięczne (4000-6000 zł), a **nie godzinowe** - atrybut `min_hourly_rate` musi wspólnie istnieć z `rate_basis` (hour / day / month), inaczej percentyle będą bezsensowne. **To nadal nie benchmark wynagrodzeń** - oferty rodzin i stawki deklarowane przez opiekunów to dwie różne populacje.
+6. **Kontaktowalność decyduje o wykonalności, i to najsilniejsze ograniczenie całej koncepcji.** Najcenniejsze kanały chronią dane: Oferteo i Fixly - punkty (od 259 zł netto), Facebook - login, OLX „Pokaż numer” - DataDome. Realnie nadające się do zautomatyzowanego pozyskania **bez łamania regulaminu** są: katalog profili `opiekaseniora.pl` (dane publiczne po rejestracji) i API publiczne (KRAZ, ePraca). **Rekomendacja v1 o zautomatyzowanym „pokaż numer” powinna zostać wycofana** na rzecz ręcznego odblokowania przez rekrutera i odnotowania w CRM.
+7. **Geografia: potwierdza potrzebę geokodowania, ale model promienia istnieje w source.** OLX dla zapytań „Warszawa” zwraca Cząstków Mazowiecki, Błonie, Kazuń Nowy, Gzowo, Mokre, Ostrołękę - czyli poza promień i poza obszar zainteresowania. Równocześnie `opiekaseniora.pl` ma natywny filtr promienia (+2..+30 km) - ale jak wskazuje sekcja 2, sam licznik strony miasta już obejmuje okolicę, więc filtry „per miasto” sumują te same profile. Słownik TERYT + `lat`/`lon` pozostaje wymagane (teza v1 utrzymana), dodatkowo: **dzielnice** (OLX podaje „Warszawa, Ochota”, „Targówek”, „Włochy”) - bez nich raport nasycenia dla 710 profili z jednego `city` będzie bezużyteczny.
+8. **Segmenty podaży (zrewidowane):** opiekunki indywidualne w katalogach profili (największa i najlepiej rokująca grupa); opiekunki indywidualne w OLX Usługi; pomoc domowa/sprzątanie jako substytut opieki towarzyskiej; studenci i pielęgniarki dorywczo (wiekowe wieczory/weekendy, potwierdzone ogłoszeniami „Praca dodatkowa”, „Status studenta”); cudzoziemki - głównie UA, także PL/UA/RU w treści i nr +380; pracownicy agencji (kontakt przez firmę); osoby po 50+ szukające pracy „z zamieszkaniem”; instytucje - poza rynkiem.
+9. **Rotacja kanałów jest realnym ryzykiem modelu danych.** Gumtree (dawniej lider darmowych ogłoszeń w PL) zniknął w 2022 r. z dnia na dzień - najpierw zablokowano dodawanie ogłoszeń, potem wyłączono serwis. Źródła muszą być **konfigurowalne i wyłączalne** (`enabled: false`, już jest) z zachowaniem historii danych po `source_id`, oraz z monitoringiem „źródło zwraca 0 pozycji od N cykli” jako alarmem, nie jako stan normalny.
+
+## 4. Czego nie wiemy (i jak zmierzyć)
+
 | Pytanie | Metoda pomiaru po wdrożeniu |
 | :--- | :--- |
-| Liczba unikalnych opiekunów-oferentów w 25 km | Liczba profili z `intent=offer`, `agency=false`, aktywnych w ostatnich 30 dni |
-| Udział popytu vs podaży | Rozkład `listing_intent` |
-| Przepływ (nowe/dzień) | Liczba `[NOWE]` na dobę, po źródle |
-| Stawka mediana/percentyle | Percentyle `min_hourly_rate` po segmencie usług |
-| Pokrycie z numerem telefonu | Udział `contact_extracted_from != 'none'` i koszt "unmask" |
-| Nasycenie dzielnic | Histogram po dzielnicy/powiecie po geokodowaniu |
+| Liczba unikalnych opiekunów-oferentów w 25 km | Profile z `intent=offer`, `agency=false`, `is_foreign_placement=false`, widoczne w ostatnich 30 dniach, po deduplikacji międzykanałowej |
+| Czy 710 profili Warszawy obejmuje już promień | Powtórzyć zapytanie `opiekaseniora.pl` przy +0/+10/+25 km i porównać liczniki oraz zbiory profili |
+| Udział popytu vs podaży | Rozkład `listing_intent` **w podziale na źródło** (kluczowy wymiar, nie łączny) |
+| Udział agencji wyjazdowych do DE | Liczba `is_foreign_placement=true` w kanałach pracy; cel: <10% po filtrze |
+| Przepływ (nowe/dzień) | `[NOWE]` na dobę per źródło |
+| Stawka: mediana i percentyle | `percentile(min_hourly_rate)` **w podziale na `rate_basis` i segment usług** |
+| Pokrycie danymi o stawce i telefonie | Udział profili z `rate_basis IS NOT NULL` i `contact_extracted_from != 'none'` (hipoteza zerowa: ~6% stawki) |
+| Pokrycie dzielnic i gmin | Histogram po `dzielnica` / `teryt` po geokodowaniu |
+| Świeżość podaży | Rozkład `now - last_seen_at`; odsetek `availability_status = 'aktywny'` |
+| Skala duplikacji międzykanałowej | Liczba sugestii dedup na 100 profili (jako sugestia, nie scalenie - dok. 05 pkt 4) |
 
-## 4. Rekomendacje do specyfikacji
-- Dodać do `SourceConfig`: `geo: {center: Warszawa, radius_km: 25}` i filtr po współrzędnych/TERYT; kolumny `lat`, `lon`, `teryt` w profilu.
-- Dodać `listing_intent` (offer/seek/agency) i `language` do ekstrakcji.
-- Rozszerzyć źródła o Yoopies, Gumtree, ogłoszenia sprzątania/opieki, grupy (jeśli zgodne z prawem) i zweryfikować rzeczywiste liczby 1-tygodniowym crawlem pilotażowym przed budową CRM.
-- Dodać wymaganie raportu podaży (CLI `report supply --city Warszawa --radius 25`) zwracającego metryki z sekcji 3.
+## 5. Rekomendacje do specyfikacji
 
-## 5. Zastrzeżenia
-Dane z wyszukiwarki to wycinek i mogą zawierać ogłoszenia wygasłe. Nie wolno wyciągać wniosków o wielkości rynku z kilkudziesięciu snippetów. Dokładną analizę da dopiero pilotaż po wdrożeniu poprawek z dok. 05.
+**Status 2026-11-23:** pkt 1-6 przeniesione do dok. 01 (FR-01, FR-03, FR-06, FR-13, FR-15..FR-20, NFR-06..NFR-08, definicja obszaru w sekcji 1) i dok. 03 (sekcja 2.2, DDL w sekcji 4, `SourceConfig`, struktura modułów), z konsekwencjami w dok. 02 i 04. Pozostały do zrealizowania w kodzie: testy FR-15..FR-20 (dok. 04) i pilotaż 7-dniowy (NFR-07).
+
+1. **Zastąpić listę źródeł z v1** (Yoopies, Gumtree) następującym porządkiem integracji:
+   - **Faza 1 (bez proxy, najwyższa wartość):** `opiekaseniora.pl` - katalog profili (start_urls: `https://opiekaseniora.pl/opiekunowie` oraz widoki lokalne, np. `https://opiekaseniora.pl/warszawa`; promień ustawić w filtrze, nie przez sumowanie widoków miejscowości) i osobno strumień ofert pracy (`/praca/warszawa`, intencja `demand`); `api_kraz` jako słownik agencji. Ten sam adapter obsłuży `niania.pl`, `pomocedomowe.pl`, `opiekazwierzat.pl`.
+   - **Faza 2 (proxy, kanał publiczny):** OLX `uslugi` (podaż) i OLX `praca` (popyt/szum), rozdzielnie jako dwa `SourceConfig` z różnym `intent_default`;
+   - **Faza 3 (tylko sygnalizacja, bez kontaktu):** Oferteo, Fixly - same zapytania/visibility, bez odblokowywania danych;
+   - **Faza 4 (ręcznie, nigdy crawler):** grupy Facebook - import za zgodą nadawcy lub wklejenie przez rekrutera;
+   - **Wykreślone:** Gumtree (nie istnieje), Yoopies (niski priorytet, opcjonalnie jako źródło uzupełniające).
+2. **Nowe pola w schemacie** (uzupełnienie dok. 03): `SourceConfig.intent_default` i `geo: {center, radius_km}`; w profilu `lat`, `lon`, `teryt`, `district`, `language`, `listing_intent`, `agency`, `is_foreign_placement`, `rate_basis`, `first_seen_at`, `last_seen_at`, `availability_status`.
+3. **Wycofać automatyczne „Pokaż numer”** (OLX/DataDome, punkty Oferteo) i zastąpić zadaniem w CRM: „odblokuj kontakt ręcznie”, z notatką kosztu. Zmniejsza to też ryzyko prawne opisane w dok. 05 pkt 2.
+4. **Dodać alarm degradacji źródła** (0 pozycji od N cykli, HTTP 403/429, zmiana struktury HTML) - lekcja po zniknięciu Gumtree.
+5. **Dodać wymaganie raportu podaży** (CLI `report supply --city Warszawa --radius 25 [--source ...]`) zwracającego metryki z sekcji 4, **z rozbiciem per źródło i per intencję**.
+6. **Przed budową CRM - 7-dniowy pilotaż** na kanałach Fazy 1 i 2 (bez OCR, bez proxy poza OLX), którego produktem jest: liczba unikalnych `offer`-profili w promieniu 25 km, pokrycie stawką i telefonem, realny koszt pozyskania kontaktu. Dopiero te liczby są podstawą decyzji o NFR i budżecie miesięcznym (dok. 05 pkt 19).
+
+## 6. Zastrzeżenia
+
+Liczby w sekcjach 1-2 mają różną jakość dowodową i trzeba je czytać rozdzielnie. (a) **Pomiar bezpośredni** (HTML portalu przez `curl`, 2026-11-23, bez logowania): liczniki `opiekaseniora.pl` (11 255 / 710 / 101), średnia i rozrzut stawki, liczba opinii, licznik Fixly. To pojedynczy snapshot — liczby zmieniają się z dnia na dzień, ale wartość źródłowa jest przyzwoita. (b) **Snippety wyszukiwarki**: ogłoszenia OLX, Yoopies, grupy FB, cenniki Oferteo - mogą dotyczyć ogłoszeń wygasłych, zawierać podwójne liczenia i zmieniać się między zapytaniami; są **hipotezami skali**, nie pomiarami. Żadna z tych liczb nie pochodzi z pełnego crawlowania ani nie przeszła deduplikacji, więc nie wolno na tej podstawie wyciągać wniosków o wielkości rynku. (c) Dane instytucjonalne (BGK, GUS, Barometr zawodów, regulaminy portali) są cytowane za publikacjami z sekcji 7. Oznaczenie „(obserwacja)” dotyczy wyłącznie grup (a) i (b).
+
+## 7. Podstawa źródeł (do ponownej weryfikacji)
+
+- `opiekaseniora.pl` - katalog profili (`/opiekunowie`, `/warszawa`, `/marki`, `/konstancin-jeziorna`) i ofert pracy (`/praca`, `/praca/warszawa`); liczniki i średnie stawki wczytane bezpośrednio z HTML 2026-11-23. Grupa Pomocni.pl (stopka „Inne serwisy grupy Pomocni.pl”: `niania.pl`, `pomocedomowe.pl`, `opiekazwierzat.pl`; Copyright 2002-2026).
+- `olx.pl` - `praca/opieka/opieka-nad-seniorami-chorymi/warszawa`, `praca/warszawa/q-opieka-seniora`, `uslugi/opieka-nad-chorymi-i-starszymi/warszawa`.
+- `oferteo.pl` - kategoria Opieka; cennik dla wykonawców (stan VIII 2026). `fixly.pl` - kategorie usług, cennik punktowy i regulamin (stan VIII 2026) potwierdzające przynależność do Grupy OLX sp. z o.o.
+- `yoopies.pl/opieka-seniora/warszawa` - przykłady profili i cennik orientacyjny serwisu.
+- Grupy FB: „OPIEKA NAD SENIOREM - Warszawa” (publiczna, ~8,9 tys. członków), „Opieka nad osobami starszymi prywatnie”, „Grupa wsparcia dla opiekunek osób starszych”.
+- `storapi.praca.gov.pl/api_kraz/v1` - API rejestru agencji zatrudnienia (OpenAPI 3.1); `oferty.praca.gov.pl` - „Instrukcja pobierania ofert pracy z systemu ePraca” i „Warunki udostępniania ...”.
+- Barometr zawodów 2026 - raport podsumowujący badania (MRPiPS, opracowanie WUP Kraków, grudzień 2025), `barometrzawodow.pl/forecast-card-zip/2026/...`. **Niesprawdzone i dlatego nie użyte w tezach:** listy deficytów per powiat (Warszawa, piaseczyński) oraz edycja na 2027 r. - do weryfikacji w kartach zawodu przed ewentualnym przeniesieniem do wymagań.
+- BGK, Departament Analiz Branżowych, „Rynek opieki długoterminowej w Polsce”, luty 2026; 300Gospodarka (26 V 2026) na podstawie Cushman & Wakefield „Marketbeat Nursing Home in Europe 2026” i danych GUS.
+- `wsparcie.um.warszawa.pl` - usługi opiekuńcze m.st. Warszawy, standardy z zarządzenia Prezydenta m.st. Warszawy nr 1517/2024 z 6 IX 2024 r.
+- Historia Gumtree w PL: komunikaty serwisu i relacje prasowe z 13-14 III 2022 r. o zamknięciu 7 IV 2022 r.
